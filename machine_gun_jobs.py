@@ -27,6 +27,6 @@ for i in range(len(n_seed)):
     o_log = os.path.join(rep_output, 'log', "output_o_%i.log"%(i+1))
     e_log = os.path.join(rep_output, 'log', "output_e_%i.log"%(i+1))
 
-    os.system('qsub -P P_lsst -q long -l s_vmem=16G -l sps=1 -e %s -o %s machine_gun_jobs_DESY1_%i.sh'%((i, e_log, o_log)))
+    os.system('qsub -P P_lsst -q long -l s_vmem=16G -l sps=1 -e %s -o %s machine_gun_jobs_DESY1_%i.sh'%((e_log, o_log, i)))
     os.system('rm machine_gun_jobs_DESY1_%i.sh*'%(i))
 
