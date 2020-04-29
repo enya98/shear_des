@@ -29,7 +29,7 @@ class comp_shear :
         self._matter_power_spectrum = 'halofit'
 
         self.ell = np.arange(20, 3000)
-        self.theta = np.linspace(3./60, 200./60., 200)
+        #self.theta = np.linspace(3./60, 200./60., 200)
 
     def gauss_photo_z(self, z, z0, sigma_z):
         return 3 * np.exp(-0.5 * (z-z0)**2 / sigma_z**2)
@@ -47,7 +47,7 @@ class comp_shear :
         self.photo_z_distribution = photo_z_distribution
     
     
-    def comp_xipm(self):
+    def comp_xipm(self, theta):
         self.wl_bin_shear = []
         self.Cl = {}
         self.xip = {}
@@ -66,8 +66,9 @@ class comp_shear :
                     # calcul de l auto-correlation pour le bin donnee
                     key = "%i_%i"%((i, j))
                     self.Cl.update({key:ccl.angular_cl(cosmology, self.wl_bin_shear[i], self.wl_bin_shear[j], self.ell)})
-                    self.xip.update({key: ccl.correlation(cosmology, self.ell, self.Cl[key], self.theta, corr_type='L+', method='fftlog')}) 
-                    self.xim.update({key: ccl.correlation(cosmology, self.ell, self.Cl[key], self.theta, corr_type='L-', method='fftlog')}) 
+                    self.xip.update({key: ccl.correlation(cosmology, self.ell, self.Cl[key], theta, corr_type='L+', method='fftlog')}) 
+                    self.xim.update({key: ccl.correlation(cosmology, self.ell, self.Cl[key], theta, corr_type='L-', method='fftlog')}) 
+
 
     def plots(self):
         #plot du bin en redshift
@@ -162,13 +163,13 @@ class comp_shear :
         
   
         
-if __name__ == "__main__":    
+# if __name__ == "__main__":    
 
-    cs = comp_shear(Omega_m=0.3, Omega_b=0.05, AS=2.,
-                    Omega_nu_h2=1e-3, H0=70, ns=0.97)
-    cs.comp_photo_z()
-    cs.comp_xipm()
-    cs.plots()                            
+#     cs = comp_shear(Omega_m=0.3, Omega_b=0.05, AS=2.,
+#                     Omega_nu_h2=1e-3, H0=70, ns=0.97)
+#     cs.comp_photo_z()
+#     cs.comp_xipm()
+#     cs.plots()                            
    
 # self.matter_power_spectrum = 'halofit' # include non-linearities in the power spectrum computation if I remember
 # self.Omega_b = 0.05   # baryon density
