@@ -1,12 +1,26 @@
 import numpy as np
 import pickle
+import pylab as plt
 from comp_shear_func import comp_shear
+import emcee
+import corner
+import parser, optparse
+import os
 
-# TO DO
-# *ecrive une classe qui calcul le chi2 # DONE
-# *je pense que tu va devoir mettre tes xi_plus et tes xi_moins dans le meme format # DONE
-# *je veux que tu me fasse le plot donnee /model xip/xim avec cosmologie de ton choix
-# * tu branches le mcmc 
+def read_option():
+
+    usage = "launch mcmc for shear fitting of des y1"
+    parser = optparse.OptionParser(usage=usage)
+
+    parser.add_option("--rep","-r",dest="rep",help="dir output", default='')
+    parser.add_option("--nwalkers","-w",dest="nwalkers", help="number of walkers", default='20')
+    parser.add_option("--nsteps","-n",dest="nsteps", help="number of steps", default='2')
+    parser.add_option("--seed","-s",dest="seed", help="seed of the generator", default='42')
+
+    option,args = parser.parse_args()
+
+    return option
+
 
 
 def trans_vec_line(vec):
@@ -19,6 +33,8 @@ class comp_chi2:
         self.xip = xip
         self.xim = xim
         self.xi = np.concatenate((xip, xim))
+        self.cov = cov
+        self.err = np.sqrt(np.diag(self.cov))
         self.weight = np.linalg.inv(cov)
         self.theta = theta
 
@@ -53,28 +69,181 @@ class comp_chi2:
         self.residuals = self.xi - self.xi_th
         self.chi2 = self.residuals.dot(np.dot(self.weight, trans_vec_line(self.residuals)))[0]
 
+
+    def plots(self):
+        # plot xiplus, ximoins
+
+        xip_th = self.xip_th
+        xim_th = self.xim_th
+        theta = self.theta
+
+        plt.figure(figsize=(12,11))
+        plt.subplots_adjust(wspace=0.0, hspace=0.)
+
+        SUBPLOTS_plus = [4, 3, 2, 1, 
+                         7, 6, 5, 
+                         10, 9, 
+                         13]
+
+        SUBPLOTS_minus = [21, 22, 23, 24, 
+                          18, 19, 20, 
+                          15, 16, 
+                          12]
+        
+        XLIM = [2, 300]
+        YLIM = [[-1,2.5], [-1,2.5], [-1,2.5], [-1,2.5],
+                [-1, 3.], [-1, 3.], [-1, 3.],
+                [-1, 5.], [-1, 5.],
+                [-1, 6]]
+
+        LEGEND = ['1,1', '1,2', '1,3', '1,4',
+                  '2,2', '2,3', '2,4',
+                  '3,3', '3,4',
+                  '4,4']
+
+        for i in range(len(SUBPLOTS_plus)):
+            
+            plt.subplot(6, 4, SUBPLOTS_plus[i])
+            plt.plot(theta*60., theta * 60. * xip_th[i*20:(i+1)*20] * 1e4, 'b', label=LEGEND[i])
+            plt.plot(XLIM, np.zeros(2), 'k')
+            plt.scatter(theta*60., theta * 60. * self.xip[i*20:(i+1)*20] * 1e4, c='k')
+            plt.xlim(XLIM[0], XLIM[1])
+            plt.ylim(YLIM[i][0], YLIM[i][1])
+            plt.xscale('log')
+            plt.xticks([],[])
+            if SUBPLOTS_plus[i] not in [1, 5, 9, 13]:
+                plt.yticks([],[])
+            else:
+                plt.ylabel('$\\theta \\xi_{+}$ / $10^{-4}$', fontsize=10)
+
+            leg = plt.legend(handlelength=0, handletextpad=0, 
+                         loc=2, fancybox=True, fontsize=8)
+            for item in leg.legendHandles:
+                item.set_visible(False)
+
+            ax = plt.subplot(6, 4, SUBPLOTS_minus[i])
+            plt.plot(theta*60., theta * 60. * xim_th[i*20:(i+1)*20] * 1e4, 'r', label=LEGEND[i])
+            plt.plot(XLIM, np.zeros(2), 'k')
+            plt.scatter(theta*60., theta * 60. * self.xim[i*20:(i+1)*20] * 1e4, c='k')
+            plt.xlim(XLIM[0], XLIM[1])
+            plt.ylim(YLIM[i][0], YLIM[i][1])
+            plt.xscale('log')
+
+            if SUBPLOTS_minus[i] in [21, 22, 23, 24]:
+                plt.xlabel('$\\theta$ (arcmin)', fontsize=12)
+            else:
+                plt.xticks([],[])
+
+            plt.yticks([],[])
+
+            leg = plt.legend(handlelength=0, handletextpad=0, 
+                         loc=2, fancybox=True, fontsize=8)
+            for item in leg.legendHandles:
+                item.set_visible(False)
+
+            ax2 = ax.twinx()
+            ax2.set_ylim(YLIM[i][0], YLIM[i][1])
+
+            if SUBPLOTS_minus[i] not in [12, 16, 20, 24]:
+                ax2.set_yticks([],[])
+            else:
+                ax2.set_ylabel('$\\theta \\xi_{-}$ / $10^{-4}$', fontsize=10)
+
+        plt.savefig('plots/xip_xim.png')
+        
+
     def return_log_L(self, param):
-        self.calcul_chi2(self, param)
-        return -self.chi2
+        self.calcul_chi2(param)
+
+        range_params = True
+
+        # flat prior omega_m
+        if param[0]<0.1 or param[0]>0.9:
+            range_params &= False
+        
+        # flat prior omega_b
+        if param[1]<0.03 or param[1]>0.07:
+            range_params &= False
+
+        # flat prior As*10**9
+        if param[2]<0.5 or param[2]>5.:
+            range_params &= False
+
+        # flat prior Omega_nu_h**2
+        if param[3]<6e-4 or param[3]>0.01:
+            range_params &= False
+
+        # flat prior H0
+        if param[4]<55 or param[4]>90:
+            range_params &= False
+
+        # flat prior ns
+        if param[5]<0.87 or param[5]>1.07:
+            range_params &= False
+            
+        if range_params:
+            return -self.chi2
+        else:
+            return -np.inf
+
+    def fit_mcmc(self, starting_point=[0.3, 0.05, 2., 0.001, 70, 0.97], nsteps = 5, nwalkers=2, seed=42):
+
+        np.random.seed(seed)
+
+        ndim = len(starting_point)
+        starting_positions = [starting_point + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+        
+        self.sampler = emcee.EnsembleSampler(nwalkers, ndim, self.return_log_L)
+        self.sampler.run_mcmc(starting_positions, nsteps)
+
+        #LABEL = ['Omega_m', 'Omega_b', 'AS', 'Omega_nu_h2', 'H0', 'ns']
+        #for j in range(ndim):
+        #    plt.figure()
+        #    for i in range(nwalkers):
+        #        plt.plot(sampler.chain[i,:,j],'k', alpha=0.1)
+        #    plt.ylabel(LABEL[j], fontsize=20)
+
+        #self.sampler = sampler
+
+        #samples = sampler.chain[:, step_cut:, :].reshape((-1, ndim))
+
+        #self.results = []
+        #self.errors = []
+        #for i in range(ndim):
+        #    mcmc = np.percentile(samples[:,i], [16, 50, 84])
+        #    self.errors.append(np.diff(mcmc))
+        #    self.results.append(mcmc[1])
+
+        #fig = corner.corner(samples, labels=['Omega_m', 'Omega_b', 'AS', 'Omega_nu_h2','H0', 'ns'], 
+        #                    truths=[self.results[0], self.results[1], self.results[2], 
+        #                            self.results[3], self.results[4],
+        #                            self.results[5]], levels=(0.68, 0.95))
+        #plt.show()
+        #plt.savefig('plots/fit_mcmc.png')
+        
+        
 
 if __name__ == "__main__":
+
+    option = read_option()
     
     param = [0.3, 0.05, 2., 0.001, 70, 0.97]
     dic_xi = pickle.load(open('/sps/lsst/users/evandena/DES_DATA/xip_xim_simu.pkl', 'rb'))
     theta = dic_xi['xip']['ANG'][:20] / 60.
 
-    import time
     
     cc = comp_chi2(dic_xi['xip']['VALUE'], 
                    dic_xi['xim']['VALUE'], 
                    theta, dic_xi['cov_matrix'])
-    A = time.time()
-    cc.calcul_chi2(param)
-    B = time.time()
-    print(B-A)
 
 
+    cc.fit_mcmc(nsteps=int(option.nsteps), 
+                nwalkers=int(option.nwalkers), 
+                seed=int(option.seed))
 
-
-
-
+    file_name = os.path.join(option.rep, 'sample_%s.pkl'%(option.seed))
+    file_output = open(file_name, 'wb')
+    dic_output = {'chain':cc.sampler.chain,
+                  'seed':option.seed}
+    pickle.dump(dic_output, file_output)
+    file_output.close()

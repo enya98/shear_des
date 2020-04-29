@@ -22,7 +22,7 @@ class comp_shear :
 
         self._Omega_c = self.Omega_m - self.Omega_b
         self._h = self.H0 / 100.
-        self._m_nu = self.Omega_nu_h2 * 93.
+        self._m_nu = (self.Omega_nu_h2 / self._h**2) * 93.14
         self._sigma8 = None
         self._A_s = self.AS/10.**9
 
