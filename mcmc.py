@@ -21,8 +21,6 @@ def read_option():
 
     return option
 
-
-
 def trans_vec_line(vec):
     return vec.reshape((len(vec), 1))
 
@@ -62,7 +60,7 @@ class comp_chi2:
             self.xim_th[i*20:(i+1)*20] = cs.xim[KEY[i]]
 
     def calcul_chi2(self, param):
-        
+        print('chi2 param: ', param)
         self.dof = len(self.xi) - len(param)
         self.comp_shear_chi2(param)
         self.xi_th = np.concatenate((self.xip_th, self.xim_th))
@@ -153,7 +151,6 @@ class comp_chi2:
         
 
     def return_log_L(self, param):
-        self.calcul_chi2(param)
 
         range_params = True
 
@@ -182,6 +179,7 @@ class comp_chi2:
             range_params &= False
             
         if range_params:
+            self.calcul_chi2(param)
             return -self.chi2
         else:
             return -np.inf
@@ -228,6 +226,12 @@ if __name__ == "__main__":
     option = read_option()
     
     param = [0.3, 0.05, 2., 0.001, 70, 0.97]
+
+    ##param_fail_1 = [2.97562507e-01, 4.85680140e-02, 2.00498544e+00, 
+    ##                2.19841975e-04, 6.99978467e+01, 9.75383166e-01]
+    ##param_fail_2 = [2.99578865e-01, 5.12096193e-02, 1.99966989e+00,
+    ##                2.74596509e-04, 7.00003361e+01,  9.70221717e-01]
+
     dic_xi = pickle.load(open('/sps/lsst/users/evandena/DES_DATA/xip_xim_simu.pkl', 'rb'))
     theta = dic_xi['xip']['ANG'][:20] / 60.
 

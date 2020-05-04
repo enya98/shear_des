@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 n_seed = np.arange(1, 3) # [1, 2]
-
+os.system('rm shear_des.tar.gz')
 os.system('tar cvzf shear_des.tar.gz ../shear_des/')
 rep_output = '/sps/lsst/users/evandena/mcmc_output'
 
@@ -20,7 +20,7 @@ for i in range(len(n_seed)):
     fichier.write('cd shear_des/ \n')
     fichier.write('\n')
 
-    fichier.write('python mcmc.py --nwalkers 20 --nsteps 1 --seed %i --rep %s'%((n_seed[i], rep_output)))
+    fichier.write('python mcmc.py --nwalkers 20 --nsteps 300 --seed %i --rep %s'%((n_seed[i], rep_output)))
     
     fichier.close()
 

@@ -54,7 +54,7 @@ class comp_shear :
         self.xim = {}
         cosmology = ccl.Cosmology(Omega_c=self._Omega_c, Omega_b=self.Omega_b,
                                   h=self._h, n_s=self.n_s, sigma8=self._sigma8, A_s=self._A_s,
-                                  w0=self.w0, m_nu=self._m_nu,
+                                  w0=self.w0, m_nu=self._m_nu, #m_nu_type='equal',
                                   matter_power_spectrum=self._matter_power_spectrum)
         for i in range(4):
             self.wl_bin_shear.append(ccl.WeakLensingTracer(cosmology,
