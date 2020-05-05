@@ -24,9 +24,9 @@ for i in range(len(n_seed)):
     
     fichier.close()
 
-    o_log = os.path.join(rep_output, 'log', "output_o_%i.log"%(i+1))
-    e_log = os.path.join(rep_output, 'log', "output_e_%i.log"%(i+1))
+    o_log = os.path.join(rep_output, 'log', "output_o_%i_mc.log"%(i+1))
+    e_log = os.path.join(rep_output, 'log', "output_e_%i_mc.log"%(i+1))
 
-    os.system('qsub -P P_lsst -q long -l s_vmem=16G -l sps=1 -e %s -o %s machine_gun_jobs_DESY1_%i.sh'%((e_log, o_log, i)))
+    os.system('qsub -P P_lsst -pe multicores 12 -q mc_highmem_huge -l sps=1 -e %s -o %s machine_gun_jobs_DESY1_%i.sh'%((e_log, o_log, i)))
     os.system('rm machine_gun_jobs_DESY1_%i.sh*'%(i))
 
