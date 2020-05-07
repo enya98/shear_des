@@ -12,6 +12,9 @@ class comp_shear :
     def __init__(self, Omega_m=0.3, Omega_b=0.05, AS=2., 
                  Omega_nu_h2=1e-3, H0=70, ns=0.97, w0=-1):
 
+        # dz_i --> n(z) --> n(z-dz_i)
+        # m_i --> x_ij --> m_i*m_j x_ij_(+/-)
+
         self.Omega_m = Omega_m
         self.Omega_b = Omega_b
         self.H0 = H0
