@@ -194,32 +194,6 @@ class comp_chi2:
         self.sampler = emcee.EnsembleSampler(nwalkers, ndim, self.return_log_L)
         self.sampler.run_mcmc(starting_positions, nsteps)
 
-        #LABEL = ['Omega_m', 'Omega_b', 'AS', 'Omega_nu_h2', 'H0', 'ns']
-        #for j in range(ndim):
-        #    plt.figure()
-        #    for i in range(nwalkers):
-        #        plt.plot(sampler.chain[i,:,j],'k', alpha=0.1)
-        #    plt.ylabel(LABEL[j], fontsize=20)
-
-        #self.sampler = sampler
-
-        #samples = sampler.chain[:, step_cut:, :].reshape((-1, ndim))
-
-        #self.results = []
-        #self.errors = []
-        #for i in range(ndim):
-        #    mcmc = np.percentile(samples[:,i], [16, 50, 84])
-        #    self.errors.append(np.diff(mcmc))
-        #    self.results.append(mcmc[1])
-
-        #fig = corner.corner(samples, labels=['Omega_m', 'Omega_b', 'AS', 'Omega_nu_h2','H0', 'ns'], 
-        #                    truths=[self.results[0], self.results[1], self.results[2], 
-        #                            self.results[3], self.results[4],
-        #                            self.results[5]], levels=(0.68, 0.95))
-        #plt.show()
-        #plt.savefig('plots/fit_mcmc.png')
-        
-        
 
 if __name__ == "__main__":
 
