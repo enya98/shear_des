@@ -61,15 +61,14 @@ class comp_shear :
         self.redshift = redshifts_data[1].data['Z_MID']
 
         self.redshifts = []
-        self.photo_z_distribution = []
+        self.nz = []
         
         for i in range(4):
             self.redshifts.append(self.redshift)
-            self.photo_z_distribution.append(redshifts_data[1].data['BIN%i'%(i+1)]*redshifts_data[1].header['NGAL_%i'%(i+1)])
+            self.nz.append(redshifts_data[1].data['BIN%i'%(i+1)]*redshifts_data[1].header['NGAL_%i'%(i+1)])
             
         self.redshifts = np.array(self.redshifts)
-        self.photo_z_distribution = np.array(self.photo_z_distribution)
-            
+        self.nz = np.array(self.nz)
 
     def update_photo_z(self, zsyst):
         
@@ -90,12 +89,12 @@ class comp_shear :
         self.xim = {}
 
         for i in range(4):
+            filtre = (self.redshifts[i] > 0)
             self.wl_bin_shear.append(ccl.WeakLensingTracer(self.cosmology,
-                                                           (self.redshifts[i], self.photo_z_distribution[i]), 
+                                                           dndz=(self.redshifts[i][filtre], self.nz[i][filtre]), 
                                                            has_shear=True,
-                                                           use_A_ia=False,
                                                            ia_bias=(self.redshift, self.AI)))
-            
+
         for i in range(4):
             for j in range(4):
                 if i>=j:
@@ -107,14 +106,15 @@ class comp_shear :
                                                           self.ell, 
                                                           self.Cl[key], 
                                                           theta, 
-                                                          corr_type='L+', 
+                                                          type='GG+', 
                                                           method='fftlog')*m_ij}) 
                     self.xim.update({key: ccl.correlation(self.cosmology, 
                                                           self.ell,
                                                           self.Cl[key], 
                                                           theta, 
-                                                          corr_type='L-', 
+                                                          type='GG-', 
                                                           method='fftlog')*m_ij})
+        self.theta = theta
 
     def plots(self):
         #plot du bin en redshift
@@ -123,7 +123,7 @@ class comp_shear :
         # C = ['r', 'b', 'g', 'y']
         
         # for i in range(4):
-        #      plt.plot(self.redshift, self.photo_z_distribution[i], C[i], 
+        #      plt.plot(self.redshift, self.nz[i], C[i], 
         #                       lw=3, label='redshift bin %i'%(i+1))
 
         # plt.xlim(0,2)
@@ -204,19 +204,18 @@ class comp_shear :
             else:
                 ax2.set_ylabel('$\\theta \\xi_{-}$ / $10^{-4}$', fontsize=10)
 
-        plt.savefig('plots/test_xip_xim.png')
-        
-        
-  
+        #plt.savefig('plots/test_xip_xim.png')
+
         
 if __name__ == "__main__":    
 
      cs = comp_shear(Omega_m=0.3, Omega_b=0.05, AS=2.,
-                     Omega_nu_h2=1e-3, H0=70, ns=0.97)
+                     Omega_nu_h2=1e-3, H0=70, ns=0.97,
+                     Z_SYST=[0., -2., 1., 1.])
      cs.intrinsic_al(A0=1., eta=2.5, z0=0.62)
-     theta = np.linspace(1./60, 2., 100)
+     theta = np.linspace(1./60, 2., 20)
      cs.comp_xipm(theta)
-     cs.plots()                            
+     cs.plots()
    
 # self.matter_power_spectrum = 'halofit' # include non-linearities in the power spectrum computation if I remember
 # self.Omega_b = 0.05   # baryon density
