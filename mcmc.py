@@ -42,8 +42,9 @@ class comp_chi2:
             theta = self.theta
 
         cs = comp_shear(Omega_m=param[0], Omega_b=param[1], AS=param[2],
-                        Omega_nu_h2=param[3], H0=param[4], ns=param[5]) 
-        cs.comp_photo_z()
+                        Omega_nu_h2=param[3], H0=param[4], ns=param[5],
+                        Z_SYST=[param[6], param[7], param[8], param[9]], 
+                        M_SYST=[param[10], param[11], param[12], param[13]]) 
         cs.comp_xipm(theta)
 
         KEY = ['0_0', '1_0', '2_0', '3_0', 
@@ -147,7 +148,7 @@ class comp_chi2:
             else:
                 ax2.set_ylabel('$\\theta \\xi_{-}$ / $10^{-4}$', fontsize=10)
 
-        plt.savefig('plots/xip_xim.png')
+        plt.savefig('plots/xip_xim_3.png')
         
 
     def return_log_L(self, param):
@@ -184,12 +185,15 @@ class comp_chi2:
         else:
             return -np.inf
 
-    def fit_mcmc(self, starting_point=[0.3, 0.05, 2., 0.001, 70, 0.97], nsteps = 5, nwalkers=2, seed=42):
+    def fit_mcmc(self, starting_point=[0.3, 0.05, 2., 0.001, 70, 0.97, [0.1, -1.9, 0.9, -0.8], 
+                    [1.2, 1.2, 1.2, 1.2]], nsteps = 5, nwalkers=2, seed=42):
 
         np.random.seed(seed)
-
+        starting_positions = []
+        
         ndim = len(starting_point)
-        starting_positions = [starting_point + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+        for j in range(ndim):
+            starting_positions.append(starting_point[j] + 1e-4*np.random.randn(ndim) for i in range(nwalkers))
         
         self.sampler = emcee.EnsembleSampler(nwalkers, ndim, self.return_log_L)
         self.sampler.run_mcmc(starting_positions, nsteps)
@@ -199,7 +203,8 @@ if __name__ == "__main__":
 
     option = read_option()
     
-    param = [0.3, 0.05, 2., 0.001, 70, 0.97]
+    param = [0.3, 0.05, 2., 0.001, 70, 0.97, 0.1-5*1.6, -1.9-5*1.3, 0.9-5*1.1, -0.8-5*2.2, 
+             1.2-5*2.3, 1.2-5*2.3, 1.2-5*2.3, 1.2-5*2.3]
 
     ##param_fail_1 = [2.97562507e-01, 4.85680140e-02, 2.00498544e+00, 
     ##                2.19841975e-04, 6.99978467e+01, 9.75383166e-01]
@@ -213,15 +218,16 @@ if __name__ == "__main__":
     cc = comp_chi2(dic_xi['xip']['VALUE'], 
                    dic_xi['xim']['VALUE'], 
                    theta, dic_xi['cov_matrix'])
-
+    cc.comp_shear_chi2(param)
+    cc.plots()
 
     cc.fit_mcmc(nsteps=int(option.nsteps), 
                 nwalkers=int(option.nwalkers), 
                 seed=int(option.seed))
 
-    file_name = os.path.join(option.rep, 'sample_%s.pkl'%(option.seed))
-    file_output = open(file_name, 'wb')
-    dic_output = {'chain':cc.sampler.chain,
-                  'seed':option.seed}
-    pickle.dump(dic_output, file_output)
-    file_output.close()
+    # file_name = os.path.join(option.rep, 'sample_%s.pkl'%(option.seed))
+    # file_output = open(file_name, 'wb')
+    # dic_output = {'chain':cc.sampler.chain,
+    #               'seed':option.seed}
+    # pickle.dump(dic_output, file_output)
+    # file_output.close()
