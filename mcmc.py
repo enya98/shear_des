@@ -13,7 +13,7 @@ def read_option():
     parser = optparse.OptionParser(usage=usage)
 
     parser.add_option("--rep","-r",dest="rep",help="dir output", default='')
-    parser.add_option("--nwalkers","-w",dest="nwalkers", help="number of walkers", default='20')
+    parser.add_option("--nwalkers","-w",dest="nwalkers", help="number of walkers", default='33')
     parser.add_option("--nsteps","-n",dest="nsteps", help="number of steps", default='2')
     parser.add_option("--seed","-s",dest="seed", help="seed of the generator", default='42')
 
@@ -26,7 +26,7 @@ def trans_vec_line(vec):
 
 class comp_chi2:
     
-    def __init__(self, xip, xim, theta, cov):
+    def __init__(self, xip, xim, theta, cov, filtre):
 
         self.xip = xip
         self.xim = xim
@@ -35,16 +35,18 @@ class comp_chi2:
         self.err = np.sqrt(np.diag(self.cov))
         self.weight = np.linalg.inv(cov)
         self.theta = theta
+        self.filtre = filtre
 
     def comp_shear_chi2(self, param, theta=None):
-        
+
         if theta is None:
             theta = self.theta
 
         cs = comp_shear(Omega_m=param[0], Omega_b=param[1], AS=param[2],
                         Omega_nu_h2=param[3], H0=param[4], ns=param[5],
                         Z_SYST=[param[6], param[7], param[8], param[9]], 
-                        M_SYST=[param[10], param[11], param[12], param[13]]) 
+                        M_SYST=[param[10], param[11], param[12], param[13]],
+                        A = param[14], eta = param[15]) 
         cs.comp_xipm(theta)
 
         KEY = ['0_0', '1_0', '2_0', '3_0', 
@@ -59,6 +61,7 @@ class comp_chi2:
             #WARNING: 20 is hard coded, could be improved....
             self.xip_th[i*20:(i+1)*20] = cs.xip[KEY[i]]
             self.xim_th[i*20:(i+1)*20] = cs.xim[KEY[i]]
+            
 
     def calcul_chi2(self, param):
         print('chi2 param: ', param)
@@ -66,7 +69,9 @@ class comp_chi2:
         self.comp_shear_chi2(param)
         self.xi_th = np.concatenate((self.xip_th, self.xim_th))
         self.residuals = self.xi - self.xi_th
-        self.chi2 = self.residuals.dot(np.dot(self.weight, trans_vec_line(self.residuals)))[0]
+        #self.chi2 = self.residuals.dot(np.dot(self.weight, trans_vec_line(self.residuals)))[0]
+        RTW = np.dot(self.residuals, self.weight)[self.filtre]
+        self.chi2 = RTW.dot(trans_vec_line(self.residuals[self.filtre]))[0]
 
 
     def plots(self):
@@ -149,11 +154,21 @@ class comp_chi2:
                 ax2.set_ylabel('$\\theta \\xi_{-}$ / $10^{-4}$', fontsize=10)
 
         plt.savefig('plots/xip_xim_3.png')
-        
+                
 
     def return_log_L(self, param):
 
         range_params = True
+        z_mean = np.array([0.1, -1.9, 0.9, -0.8]) * 1e-2
+        z_std = np.array([1.6, 1.3, 1.1, 2.2]) * 1e-2
+        m_mean = np.array([1.2, 1.2, 1.2, 1.2]) * 1e-2
+        m_std = np.array([2.3, 2.3, 2.3, 2.3]) * 1e-2
+        z_priors = 0.
+        m_priors = 0.
+        
+        for i in range(4):
+            z_priors += 0.5*((param[6+i] - z_mean[i])/z_std[i])**2
+            m_priors += 0.5*((param[10+i] - m_mean[i])/m_std[i])**2
 
         # flat prior omega_m
         if param[0]<0.1 or param[0]>0.9:
@@ -179,21 +194,28 @@ class comp_chi2:
         if param[5]<0.87 or param[5]>1.07:
             range_params &= False
             
+        # flat prior A
+        if param[14]<-5. or param[14]>5.:
+            range_params &= False
+            
+        # flat prior eta
+        if param[15]<-5. or param[15]>5.:
+            range_params &= False            
+
         if range_params:
             self.calcul_chi2(param)
-            return -self.chi2
+            return - self.chi2 - z_priors - m_priors
         else:
             return -np.inf
 
-    def fit_mcmc(self, starting_point=[0.3, 0.05, 2., 0.001, 70, 0.97, [0.1, -1.9, 0.9, -0.8], 
-                    [1.2, 1.2, 1.2, 1.2]], nsteps = 5, nwalkers=2, seed=42):
+    def fit_mcmc(self, starting_point=[0.3, 0.05, 2., 0.001, 70, 0.97, 0.1, -1.9, 0.9, -0.8, 
+                    1.2, 1.2, 1.2, 1.2, 1., 2.5], nsteps=1, nwalkers=40, seed=42):
 
         np.random.seed(seed)
-        starting_positions = []
-        
+        starting_positions = []        
         ndim = len(starting_point)
-        for j in range(ndim):
-            starting_positions.append(starting_point[j] + 1e-4*np.random.randn(ndim) for i in range(nwalkers))
+        print(ndim)
+        starting_positions = [starting_point + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
         
         self.sampler = emcee.EnsembleSampler(nwalkers, ndim, self.return_log_L)
         self.sampler.run_mcmc(starting_positions, nsteps)
@@ -203,31 +225,34 @@ if __name__ == "__main__":
 
     option = read_option()
     
-    param = [0.3, 0.05, 2., 0.001, 70, 0.97, 0.1-5*1.6, -1.9-5*1.3, 0.9-5*1.1, -0.8-5*2.2, 
-             1.2-5*2.3, 1.2-5*2.3, 1.2-5*2.3, 1.2-5*2.3]
+    param = [0.3, 0.05, 2., 0.001, 70, 0.97, 0.1, -1.9, 0.9, -0.8, 
+             1.2, 1.2, 1.2, 1.2, 1., 2.5]
 
     ##param_fail_1 = [2.97562507e-01, 4.85680140e-02, 2.00498544e+00, 
     ##                2.19841975e-04, 6.99978467e+01, 9.75383166e-01]
     ##param_fail_2 = [2.99578865e-01, 5.12096193e-02, 1.99966989e+00,
     ##                2.74596509e-04, 7.00003361e+01,  9.70221717e-01]
 
-    dic_xi = pickle.load(open('/sps/lsst/users/evandena/DES_DATA/xip_xim_simu.pkl', 'rb'))
+    dic_xi = pickle.load(open('/sps/lsst/users/evandena/DES_DATA/xip_xim_real.pkl', 'rb'))
     theta = dic_xi['xip']['ANG'][:20] / 60.
-
+    xip_tab = dic_xi['xip']
+    xim_tab = dic_xi['xim']
+    xi_tab = np.concatenate((xip_tab, xim_tab))
+    filtre = xi_tab['USED']
     
     cc = comp_chi2(dic_xi['xip']['VALUE'], 
                    dic_xi['xim']['VALUE'], 
-                   theta, dic_xi['cov_matrix'])
+                   theta, dic_xi['cov_matrix'], filtre)
     cc.comp_shear_chi2(param)
-    cc.plots()
+    #cc.plots()
 
     cc.fit_mcmc(nsteps=int(option.nsteps), 
                 nwalkers=int(option.nwalkers), 
                 seed=int(option.seed))
 
-    # file_name = os.path.join(option.rep, 'sample_%s.pkl'%(option.seed))
-    # file_output = open(file_name, 'wb')
-    # dic_output = {'chain':cc.sampler.chain,
-    #               'seed':option.seed}
-    # pickle.dump(dic_output, file_output)
-    # file_output.close()
+    file_name = os.path.join(option.rep, 'sample_%s.pkl'%(option.seed))
+    file_output = open(file_name, 'wb')
+    dic_output = {'chain':cc.sampler.chain,
+                  'seed':option.seed}
+    pickle.dump(dic_output, file_output)
+    file_output.close()

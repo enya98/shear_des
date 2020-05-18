@@ -26,6 +26,7 @@ class comp_shear :
         self.load_photo_z()
         self.update_photo_z(Z_SYST)
         self.update_multiplicative_bias(M_SYST)
+        self.update_intrinsic_al(A0=1., eta=2.5, z0=0.62)
 
         self.ell = np.arange(20, 3000)
         #self.theta = np.linspace(1./60, 2., 100)
@@ -79,7 +80,7 @@ class comp_shear :
     def update_multiplicative_bias(self, mbias):
         self.mbias = np.array(mbias) * 1e-2
         
-    def intrinsic_al(self, A0=1, eta=1, z0=0.62):
+    def update_intrinsic_al(self, A0=1, eta=1, z0=0.62):
         self.AI = A0 * ((1+self.redshift) / (1+z0))**eta
 
     def comp_xipm(self, theta):
@@ -106,13 +107,13 @@ class comp_shear :
                                                           self.ell, 
                                                           self.Cl[key], 
                                                           theta, 
-                                                          type='GG+', 
+                                                          corr_type='L+', 
                                                           method='fftlog')*m_ij}) 
                     self.xim.update({key: ccl.correlation(self.cosmology, 
                                                           self.ell,
                                                           self.Cl[key], 
                                                           theta, 
-                                                          type='GG-', 
+                                                          corr_type='L-', 
                                                           method='fftlog')*m_ij})
         self.theta = theta
 
@@ -212,7 +213,6 @@ if __name__ == "__main__":
      cs = comp_shear(Omega_m=0.3, Omega_b=0.05, AS=2.,
                      Omega_nu_h2=1e-3, H0=70, ns=0.97,
                      Z_SYST=[0., -2., 1., 1.])
-     cs.intrinsic_al(A0=1., eta=2.5, z0=0.62)
      theta = np.linspace(1./60, 2., 20)
      cs.comp_xipm(theta)
      cs.plots()
